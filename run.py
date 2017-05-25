@@ -1,23 +1,3 @@
-# Theory
-# ------
-# - Remove rows from dataset that are inconsistent with constrains
-# - This technique comes from PSDDs
-
-# - Need to prove that we can do this in SPNs
-#     - Prove first that the models are equivalent
-#         - PSDDs == to ACs
-#         - ACs == to SPNs, for discrete domains
-#     - Prove second that the learning method works
-#         - Learning PSDDs with constrains can just ignore the rows in the dataset
-#         - This can be done because PSDDs have closed learning form
-#         - Sum nodes in SPNs can be seen as a naive Bayes mixture model
-#         - naive Bayes mixture models have closed learning form
-#         - ignoring rows from dataset then can be applied for each sum node
-#         - therefore, can also be applied for the whole SPN
-# - Extra:
-#   - Highlight SPN interpretation: naive Bayes mixture model
-#   - Draw BN from this interpretation: "hierarchical naive Bayes mixture model"
-
 import numpy as np
 import networkx as nx
 import pandas as pd
