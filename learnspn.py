@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.mixture import GaussianMixture
 
 from spn import SPN
-from spn import CategoricalSmoothedNode
+from spn import ProductNode, SumNode, CategoricalSmoothedNode
 
 class LearnSPN():
 
@@ -76,7 +76,8 @@ class LearnSPN():
                 ind_groups = [ig for ig in ind_groups if len(ig)>0]
             return ind_groups
         data_chunk = self.dataset[rows,:][:,columns]
-        gmm = GaussianMixture(n_components=self.n_clusters,random_state=self.rand_gen).fit(data_chunk)
+        wrap_n_clusters = min(self.n_clusters,len(rows)-1)
+        gmm = GaussianMixture(n_components=wrap_n_clusters,random_state=self.rand_gen).fit(data_chunk)
         clustering = gmm.predict(data_chunk)
         return index_groups(clustering,rows)
 
@@ -93,15 +94,17 @@ class LearnSPN():
 
         root_node_id = spn.get_next_node_id()
         root_node_predecessors = []
-        data_chunks_to_process.append((root_node_id,root_node_predecessors,all_rows,all_columns))
+        data_chunks_to_process.append((root_node_id,root_node_predecessors,np.array([]),all_rows,all_columns))
 
+        # TODO: not sure why start by clustering instances instead of finding independent features
+        first_run = True
         while (len(data_chunks_to_process) > 0):
-            curr_node_id, curr_node_predecessors, rows_chunk, columns_chunk = data_chunks_to_process.popleft()
+            curr_node_id, curr_node_predecessors, weight, rows_chunk, columns_chunk = data_chunks_to_process.popleft()
             if len(columns_chunk) == 1:
                 # Laplace smoothed leaf node
                 variable = columns_chunk[0]
                 chunked_data = self.dataset[rows_chunk,:][:,columns_chunk]
-                leaf_node = CategoricalSmoothedNode(curr_node_id,curr_node_predecessors,variable,self.cardinalities[variable],chunked_data,alpha=self.alpha)
+                leaf_node = CategoricalSmoothedNode(curr_node_id,curr_node_predecessors,weight,np.array([variable]),self.cardinalities[variable],chunked_data,alpha=self.alpha)
                 spn.add_node(leaf_node)
             elif (len(rows_chunk) < self.min_instances) and (len(columns_chunk) > 1):
                 # Factorize into a product node with all features being leaf nodes
@@ -109,32 +112,45 @@ class LearnSPN():
                 for column in columns_chunk:
                     child_id = spn.get_next_node_id()
                     children.append(child_id)
-                    data_chunks_to_process.append((child_id,[curr_node_id],all_rows,np.array([column])))
-                product_node = ProductNode(curr_node_id,curr_node_predecessors,columns_chunk)
+                    data_chunks_to_process.append((child_id,[curr_node_id],np.array([]),rows_chunk,np.array([column])))
+                product_node = ProductNode(curr_node_id,curr_node_predecessors,weight,columns_chunk)
                 spn.add_node(product_node)
-            # else:
-            #     V_is = get_independent_subsets(T,V,D)
-            #     chop_success = len(V_is) > 1
-            #     if chop_success:
-            #         product_node = G.node_id_gen.get_next()
-            #         G.add_node(product_node, {"type":"product","label":"x"})
-            #         for i, V_i in enumerate(V_is):
-            #             child = learn_spn(T,V_i,D,G)
-            #             G.add_edge(product_node, child)
-            #         return product_node
-            #     else:
-            #         T_is = get_clusters(T,V,D)
-            #         slice_success = not ((len(T_is) == 1) and (len(T_is[0]) == len(T)))
-            #         if slice_success:
-            #             sum_node = G.node_id_gen.get_next()
-            #             G.add_node(sum_node, {"type":"sum", "label": "+"})
-            #             for T_i in T_is:
-            #                 child = learn_spn(T_i,V,D,G)
-            #                 weight = len(T_i)/len(T)
-            #                 G.add_edge(sum_node, child, {"weight": weight, "label": "{:.4f}".format(weight)})
-            #             return sum_node
-            #         else:
-            #             return learn_spn(T_is[0],V,D,G,build_leaf=True)
+            else:
+                # In first run, cluster instances
+                chop_features = False
+                if first_run:
+                    first_run = False
+                else:
+                    first_chop_chunk, second_chop_chunk = self.chop(rows_chunk,columns_chunk)
+                    if (len(first_chop_chunk) > 0) and (len(second_chop_chunk) > 0):
+                        chop_features = True
+                # Chop features or slice instances
+                if chop_features:
+                    child_id_1 = spn.get_next_node_id()
+                    data_chunks_to_process.append((child_id_1,[curr_node_id],np.array([]),rows_chunk,first_chop_chunk))
+                    child_id_2 = spn.get_next_node_id()
+                    data_chunks_to_process.append((child_id_2,[curr_node_id],np.array([]),rows_chunk,second_chop_chunk))
+
+                    product_node = ProductNode(curr_node_id,curr_node_predecessors,weight,columns_chunk)
+                    spn.add_node(product_node)
+                else:
+                    first_slice_chunk, second_slice_chunk = self.slice(rows_chunk,columns_chunk)
+
+                    n_instances = len(rows_chunk)
+                    child_id_1 = spn.get_next_node_id()
+                    weight_child_1 = len(first_slice_chunk) / n_instances
+                    data_chunks_to_process.append((child_id_1,[curr_node_id],np.array([weight_child_1]),first_slice_chunk,columns_chunk))
+                    child_id_2 = spn.get_next_node_id()
+                    weight_child_2 = len(second_slice_chunk) / n_instances
+                    data_chunks_to_process.append((child_id_2,[curr_node_id],np.array([weight_child_2]),second_slice_chunk,columns_chunk))
+
+                    sum_node = SumNode(curr_node_id,curr_node_predecessors,weight,columns_chunk)
+                    spn.add_node(sum_node)
+        # Fill in all successor nodes for each SPN node (note that during training only predecessor nodes were filled)
+        # And transform all nodes from IDs to Node objects
+        spn.transform_nodes()
+        return spn
+
 
 
     # Utilities
@@ -143,7 +159,12 @@ class LearnSPN():
         cardinalities = np.zeros(self.dataset.shape[1],dtype=np.uint32)
         for column in range(self.dataset.shape[1]):
             values = np.unique(self.dataset[:,column])
-            cardinalities[column] = len(values)
+            # TODO: better solution for handling case where variable does not change
+            # TOFIX: Solution: compute cardinality before learning. The problem is that by computing cardinality later in the slice and chop part, a chunk of the data might not contain all possible values anymore, thus wrongly saying that the cardinality is 1.
+            cardinality = len(values)
+            if cardinality < 2:
+                cardinality = 2
+            cardinalities[column] = cardinality
         return cardinalities
 
 

@@ -1,5 +1,7 @@
 import numpy as np
 import math
+import networkx as nx
+from collections import deque
 
 LOG_ZERO = -1e3
 
@@ -16,6 +18,84 @@ class SPN():
     def add_node(self,node):
         self.nodes.append(node)
 
+    def get_leaves(self):
+        return [n for n in self.nodes if isinstance(n,LeafNode)]
+
+    def get_root(self):
+        poss_root = [n for n in self.nodes if len(n.predecessors) == 0]
+        if len(poss_root) != 1:
+            raise ValueError("SPN should contain only one root node.")
+        return poss_root[0]
+
+    def get_node_by_id(self, node_id):
+        for node in self.nodes:
+            if node.id == node_id:
+                return node
+        raise ValueError("Node id '{}' not found in SPN".format(node_id))
+
+    def transform_nodes(self):
+        """
+        Fill in all successor nodes for each SPN node (note that during training only predecessor nodes were filled)
+        And transform all nodes from IDs (integers) to Node objects
+        """
+        to_visit = deque(self.get_leaves())
+        visited = []
+        while len(to_visit) > 0:
+            curr_node = to_visit.popleft()
+            visited.append(curr_node)
+            node_predecessors = []
+            for predecessor in curr_node.predecessors:
+                node_predecessor = self.get_node_by_id(predecessor)
+                node_predecessor.successors.append(curr_node)
+                node_predecessors.append(node_predecessor)
+                if (not node_predecessor in visited) and (not node_predecessor in to_visit):
+                    to_visit.append(node_predecessor)
+            curr_node.predecessors = node_predecessors
+
+    def evaluate(self,evidence):
+        # Initialize leaf nodes with evidence
+        for leaf in self.get_leaves():
+            var_value = evidence[leaf.variables[0]]
+            leaf.init_evidence(var_value)
+        root = self.get_root()
+        value = root.evaluate()
+        return value
+
+
+    def log_likelihood(self, dataset):
+        log_likelihood = 0
+        for i in range(dataset.shape[0]):
+            evidence_row = dataset[i,:]
+            value = self.evaluate(evidence_row)
+            if value > 0:
+                raise ValueError("Likelihood expected to be positive (probability between 0 and 1)")
+            log_likelihood += value
+        return log_likelihood / dataset.shape[0]
+
+
+    def draw(self,file_name="spn.dot"):
+        from networkx.drawing.nx_pydot import write_dot
+        graph = nx.DiGraph()
+        for node in self.nodes:
+            node_label = "None"
+            if isinstance(node,SumNode):
+                node_label = "+"
+            elif isinstance(node,ProductNode):
+                node_label = "x"
+            elif isinstance(node,LeafNode):
+                node_label = "^"
+            if len(node.predecessors) > 0:
+                for predecessor in node.predecessors:
+                    if len(node.weight)>0:
+                        graph.add_edge(predecessor.id,node.id,{"weight":node.weight})
+                    else:
+                        graph.add_edge(predecessor.id,node.id)
+                graph.node[node.id]["label"] = node_label
+            else:
+                graph.add_node(node.id, {"label": node_label})
+        write_dot(graph, file_name)
+
+
 
 
 
@@ -23,25 +103,104 @@ class SPN():
 
 class Node():
 
-    def __init__(self,id,predecessors):
+    def __init__(self,id,predecessors,weight,variables):
         self.id = id
         self.predecessors = predecessors
+        # TODO: since for learning we don't need successors (build SPN top-down), we aren't adding successors as parameters to constructor
+        # But it would be better to add both predecessors and successors as optional parameters
+        self.successors = []
+        self.weight = weight
+        self.variables = variables
+
+    def __hash__(self):
+        return hash(self.id)
+
+    def __eq__(self,other):
+        if isinstance(other,Node):
+            return self.id == other.id
+        else:
+            return False
+
+    def evaluate(self):
+        raise Exception("Method not implemented for this node type.")
 
 
 
 
 
 
-class CategoricalSmoothedNode(Node):
+class ProductNode(Node):
 
-    def __init__(self,id,predecessors,variable,cardinality,data,alpha=0.1):
+    def __init__(self,id,predecessors,weight,variables):
+        # Initializations
+        super().__init__(id,predecessors,weight,variables)
+
+    def evaluate(self):
+        log_value = 0
+        for successor in self.successors:
+            log_value += successor.evaluate()
+        ### DEBUG
+        # print(">>> Product node with var "+str(self.variables)+" --> "+str(log_value))
+        ###---DEBUG
+        return log_value
+
+
+
+
+
+
+class SumNode(Node):
+
+    def __init__(self,id,predecessors,weight,variables):
+        # Initializations
+        super().__init__(id,predecessors,weight,variables)
+
+    def evaluate(self):
+        pair_succ = []
+        max_log = LOG_ZERO
+        successor_values = []
+        for successor in self.successors:
+            w_sum = successor.evaluate() + math.log(successor.weight)
+            if w_sum > max_log:
+                max_log = w_sum
+            successor_values.append(w_sum)
+
+        sum_val = 0
+        for w_sum in successor_values:
+            sum_val += math.exp(w_sum - max_log)
+
+        log_value = LOG_ZERO
+        if sum_val > 0:
+            log_value = math.log(sum_val) + max_log
+
+        ### DEBUG
+        # print(">>> Sum node with var "+str(self.variables)+" --> "+str(log_value))
+        ###---DEBUG
+
+        return log_value
+
+
+
+
+
+class LeafNode(Node):
+
+    def __init__(self,id,predecessors,weight,variables):
+        # Initializations
+        super().__init__(id,predecessors,weight,variables)
+
+
+
+
+class CategoricalSmoothedNode(LeafNode):
+
+    def __init__(self,id,predecessors,weight,variable,cardinality,data,alpha=0.1):
 
         if len(data.shape) < 2 or data.shape[1] != 1:
             raise ValueError("Categorial Smoothed Node expected a column vector of shape N x 1.")
 
         # Initializations
-        super().__init__(id,predecessors)
-        self.variable = variable
+        super().__init__(id,predecessors,weight,variable)
         self.cardinality = cardinality
 
         # Constants
@@ -52,6 +211,16 @@ class CategoricalSmoothedNode(Node):
         self.compute_frequencies(data)
         self.probabilities = np.zeros(len(self.frequencies))
         self.compute_probabilities()
+        ### DEBUG
+        # if self.variables[0]==35:
+        # # if self.probabilities[0] > -1 or self.probabilities[1] > -1:
+            # print(">>> Strange!!!")
+            # print(self.variables)
+            # print(list(data))
+            # print(self.frequencies)
+            # print(self.probabilities)
+            # raise Exception("Stop!")
+        ###---DEBUG
 
     def compute_frequencies(self, data):
         for row in range(data.shape[0]):
@@ -66,17 +235,20 @@ class CategoricalSmoothedNode(Node):
                 log_freq = math.log(freq + self.alpha)
             self.probabilities[i] = (log_freq - math.log(freqs_sum + self.cardinality * self.alpha))
 
-    def evaluate(self,var_value):
-        return self.probabilities[var_value]
+    def init_evidence(self,var_value):
+        self.evidence = var_value
 
-
-
-
-
- class ProductNode(Node):
-
-    def __init__(self,id,predecessors,variables):
-        # Initializations
-        super().__init__(id,predecessors)
-        self.variables = variables
-
+    def evaluate(self,var_value=None):
+        if not var_value:
+            var_value = self.evidence
+        log_value = self.probabilities[var_value]
+        ### DEBUG
+        # print(">>> Leaf node with var "+str(self.variables)+" and value "+str(var_value)+" --> "+str(log_value))
+        # if log_value < -1:
+        #     print("*** Analyzing leaf node")
+        #     print(self.variables)
+        #     print(self.probabilities)
+        #     print(self.frequencies)
+        #     raise Exception("*** STOP")
+        ###---DEBUG
+        return log_value
