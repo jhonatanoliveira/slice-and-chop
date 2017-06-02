@@ -2,19 +2,23 @@ import math
 from collections import deque
 import numpy as np
 from sklearn.mixture import GaussianMixture
+from sklearn.cluster import KMeans
 
 from spn import SPN
 from spn import ProductNode, SumNode, CategoricalSmoothedNode
 
 class LearnSPN():
 
-    def __init__(self, dataset, g_factor=0.0015, n_clusters=2, leaf_alpha=0.1, min_instances=100, random_seed=0):
+    def __init__(self, dataset, chop_method="gtest", slice_method="gmm", g_factor=5, mi_factor=0.05, n_clusters=2, leaf_alpha=0.1, min_instances=100, random_seed=0):
         # Learning constants
         self.g_factor = g_factor
+        self.mi_factor = mi_factor
         self.n_clusters = n_clusters
-        self.rand_gen = np.random.RandomState(random_seed)
         self.alpha = leaf_alpha
         self.min_instances = min_instances
+        self.chop_method = chop_method
+        self.slice_method = slice_method
+        self.rand_gen = np.random.RandomState(random_seed)
         # Dataset information
         self.dataset = dataset
         self.variables = np.arange(1,self.dataset.shape[1],dtype=np.uint32)
@@ -49,7 +53,15 @@ class LearnSPN():
 
             for other_feature in features_consideration.nonzero()[0]:
                 feature2 = columns[other_feature]
-                if not self.g_test(feature1,feature2,rows):
+                # Detect dependent features
+                is_independent = False
+                if self.chop_method == "gtest":
+                    is_independent = self.g_test(feature1,feature2,rows)
+                elif self.chop_method == "mi":
+                    is_independent = self.mutual_information(feature1,feature2,rows)
+                else:
+                    raise NotImplementedError("Chop method '{}' not implemented.".format(self.chop_method))
+                if not is_independent:  
                     features_to_remove[other_feature] = True
                     dependent_features[other_feature] = True
                     features_to_process.append(other_feature)
@@ -77,8 +89,13 @@ class LearnSPN():
             return ind_groups
         data_chunk = self.dataset[rows,:][:,columns]
         wrap_n_clusters = min(self.n_clusters,len(rows)-1)
-        gmm = GaussianMixture(n_components=wrap_n_clusters,random_state=self.rand_gen).fit(data_chunk)
-        clustering = gmm.predict(data_chunk)
+        clustering = []
+        if self.slice_method == "gmm":
+            gmm = GaussianMixture(n_components=wrap_n_clusters,random_state=self.rand_gen).fit(data_chunk)
+            clustering = gmm.predict(data_chunk)
+        elif self.slice_method == "kmeans":
+            kmeans = KMeans(n_clusters=wrap_n_clusters,random_state=self.rand_gen).fit(data_chunk)
+            clustering = kmeans.predict(data_chunk)
         return index_groups(clustering,rows)
 
 
@@ -207,5 +224,42 @@ class LearnSPN():
                     g_value += count * math.log(count / exp_count)
         g_value *= 2
         p_value = 2 * degree_of_freedom * self.g_factor + 0.001
+        ### DEBUG
+        print(">>> F1: {} and F2: {} <<<".format(str(feature1),str(feature2)))
+        print(">>> g_value: "+str(g_value))
+        print(">>> p_value: "+str(p_value))
+        ###---DEBUG
 
         return g_value < p_value
+
+
+
+    def mutual_information(self,feature1,feature2,rows):
+        """
+        Code from: https://stackoverflow.com/questions/24686374/pythons-implementation-of-mutual-information
+        Normalized Mutual Information (NMI) is an normalization of the Mutual Information (MI) score to scale the results between 0 (no mutual information) and 1 (perfect correlation)
+        """
+        x = self.dataset[rows,:][:,feature1]
+        y = self.dataset[rows,:][:,feature2]
+        # Compute MI
+        sum_mi = 0.0
+        x_value_list = np.unique(x)
+        y_value_list = np.unique(y)
+        Px = np.array([ len(x[x==xval])/float(len(x)) for xval in x_value_list ]) #P(x)
+        Py = np.array([ len(y[y==yval])/float(len(y)) for yval in y_value_list ]) #P(y)
+        for i in range(len(x_value_list)):
+            if Px[i] ==0.:
+                continue
+            sy = y[x == x_value_list[i]]
+            if len(sy)== 0:
+                continue
+            pxy = np.array([len(sy[sy==yval])/float(len(y))  for yval in y_value_list]) #p(x,y)
+            t = pxy[Py>0.]/Py[Py>0.] /Px[i] # P(x,y)/( P(x)*P(y)
+            #TODO: confirm if here should be log2 or log
+            sum_mi += sum(pxy[t>0]*np.log2( t[t>0]) ) # sum ( P(x,y)* log(P(x,y)/( P(x)*P(y)) )
+        ### DEBUG
+        print(">>> F1: {} and F2: {} <<<".format(str(feature1),str(feature2)))
+        print(">>> sum_mi: "+str(sum_mi))
+        print(">>> self.mi_factor: "+str(self.mi_factor))
+        ###---DEBUG
+        return sum_mi < self.mi_factor

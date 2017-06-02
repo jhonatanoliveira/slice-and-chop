@@ -1,2 +1,5 @@
 /ideas.txt
 __pycache__
+*.png
+*.dot
+*.txt

@@ -1,2 +1,42 @@
->>> Structure learned in 9.185872793197632
->>> Log Likelihood: -6.01659525792 - in 30.470766067504883
+>>> F1: 0 and F2: 3 <<<
+>>> g_value: 1.18493922561
+>>> p_value: 2.001
+>>> F1: 1 and F2: 3 <<<
+>>> g_value: 0.505343078431
+>>> p_value: 2.001
+>>> F1: 2 and F2: 3 <<<
+>>> g_value: 0.505343078431
+>>> p_value: 2.001
+>>> F1: 0 and F2: 1 <<<
+>>> g_value: 0.138442938084
+>>> p_value: 2.001
+>>> F1: 0 and F2: 2 <<<
+>>> g_value: 1.18493922561
+>>> p_value: 2.001
+>>> F1: 0 and F2: 3 <<<
+>>> g_value: 0.0
+>>> p_value: 0.001
+>>> F1: 0 and F2: 2 <<<
+>>> g_value: 1.18493922561
+>>> p_value: 2.001
+>>> F1: 1 and F2: 2 <<<
+>>> g_value: 0.505343078431
+>>> p_value: 2.001
+>>> F1: 1 and F2: 2 <<<
+>>> g_value: 1.18493922561
+>>> p_value: 2.001
+>>> F1: 1 and F2: 3 <<<
+>>> g_value: 0.0
+>>> p_value: 0.001
+>>> F1: 0 and F2: 1 <<<
+>>> g_value: 2.23143551314
+>>> p_value: 2.001
+>>> F1: 2 and F2: 3 <<<
+>>> g_value: 0.0
+>>> p_value: 0.001
+>>> F1: 0 and F2: 1 <<<
+>>> g_value: 0.0
+>>> p_value: 0.001
+>>> F1: 0 and F2: 1 <<<
+>>> g_value: 0.0
+>>> p_value: 0.001
