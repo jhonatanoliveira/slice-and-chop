@@ -211,16 +211,6 @@ class CategoricalSmoothedNode(LeafNode):
         self.compute_frequencies(data)
         self.probabilities = np.zeros(len(self.frequencies))
         self.compute_probabilities()
-        ### DEBUG
-        # if self.variables[0]==35:
-        # # if self.probabilities[0] > -1 or self.probabilities[1] > -1:
-            # print(">>> Strange!!!")
-            # print(self.variables)
-            # print(list(data))
-            # print(self.frequencies)
-            # print(self.probabilities)
-            # raise Exception("Stop!")
-        ###---DEBUG
 
     def compute_frequencies(self, data):
         for row in range(data.shape[0]):
@@ -242,13 +232,4 @@ class CategoricalSmoothedNode(LeafNode):
         if not var_value:
             var_value = self.evidence
         log_value = self.probabilities[var_value]
-        ### DEBUG
-        # print(">>> Leaf node with var "+str(self.variables)+" and value "+str(var_value)+" --> "+str(log_value))
-        # if log_value < -1:
-        #     print("*** Analyzing leaf node")
-        #     print(self.variables)
-        #     print(self.probabilities)
-        #     print(self.frequencies)
-        #     raise Exception("*** STOP")
-        ###---DEBUG
         return log_value
