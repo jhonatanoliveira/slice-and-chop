@@ -224,11 +224,6 @@ class LearnSPN():
                     g_value += count * math.log(count / exp_count)
         g_value *= 2
         p_value = 2 * degree_of_freedom * self.g_factor + 0.001
-        ### DEBUG
-        print(">>> F1: {} and F2: {} <<<".format(str(feature1),str(feature2)))
-        print(">>> g_value: "+str(g_value))
-        print(">>> p_value: "+str(p_value))
-        ###---DEBUG
 
         return g_value < p_value
 
@@ -257,9 +252,4 @@ class LearnSPN():
             t = pxy[Py>0.]/Py[Py>0.] /Px[i] # P(x,y)/( P(x)*P(y)
             #TODO: confirm if here should be log2 or log
             sum_mi += sum(pxy[t>0]*np.log2( t[t>0]) ) # sum ( P(x,y)* log(P(x,y)/( P(x)*P(y)) )
-        ### DEBUG
-        print(">>> F1: {} and F2: {} <<<".format(str(feature1),str(feature2)))
-        print(">>> sum_mi: "+str(sum_mi))
-        print(">>> self.mi_factor: "+str(self.mi_factor))
-        ###---DEBUG
         return sum_mi < self.mi_factor
