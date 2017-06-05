@@ -221,10 +221,10 @@ class LearnSPN():
                 count = frequencies_combined[i, j]
                 if count != 0:
                     exp_count = freq_feat1 * freq_feat2 / n_instances
-                    g_value += count * math.log(count / exp_count)
+                    value = count * math.log(count / exp_count)
+                    g_value += value
         g_value *= 2
         p_value = 2 * degree_of_freedom * self.g_factor + 0.001
-
         return g_value < p_value
 
 
