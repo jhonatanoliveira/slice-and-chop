@@ -9,7 +9,7 @@ from spn import ProductNode, SumNode, CategoricalSmoothedNode
 
 class LearnSPN():
 
-    def __init__(self, dataset, chop_method="gtest", slice_method="gmm", g_factor=5, mi_factor=0.05, n_clusters=2, leaf_alpha=0.1, min_instances=100, random_seed=0):
+    def __init__(self, dataset, chop_method="gtest", slice_method="gmm", g_factor=5, mi_factor=0.05, n_clusters=2, leaf_alpha=0.1, min_instances=100, random_seed=None):
         # Learning constants
         self.g_factor = g_factor
         self.mi_factor = mi_factor
@@ -61,7 +61,7 @@ class LearnSPN():
                     is_independent = self.mutual_information(feature1,feature2,rows)
                 else:
                     raise NotImplementedError("Chop method '{}' not implemented.".format(self.chop_method))
-                if not is_independent:  
+                if not is_independent:
                     features_to_remove[other_feature] = True
                     dependent_features[other_feature] = True
                     features_to_process.append(other_feature)
