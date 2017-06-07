@@ -37,7 +37,7 @@ def write_file_experiment(file, dataset, train_dataset, test_dataset, chop_metho
     print(">>> Computed in {} (s)".format(str(t1_ll_train-t0_ll_train)))
     print(">>> Test LL: {}. Computed in {}".format(str(ll_test),str(t1_ll_test-t0_ll_test)))
 
-    file.write("{},{},{},{},{},{},{},{},{},{},{}".format(str(dataset),str(g_factor),str(leaf_alpha),str(min_instance),str(chop_method),str(slice_method),str(ll_train),str(ll_test),str(t1_learning-t0_learning),str(t1_ll_train-t1_ll_train),str(t1_ll_test-t1_ll_test)))
+    file.write("{},{},{},{},{},{},{},{},{},{},{}\n".format(str(dataset),str(g_factor),str(leaf_alpha),str(min_instance),str(chop_method),str(slice_method),str(ll_train),str(ll_test),str(t1_learning-t0_learning),str(t1_ll_train-t0_ll_train),str(t1_ll_test-t0_ll_test)))
 
 
 
