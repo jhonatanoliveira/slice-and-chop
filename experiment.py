@@ -5,7 +5,7 @@ from time import time
 
 random_seed = 12345
 
-datasets = ["nltcs"]
+datasets = ["accidents","ad","baudio","bbc","bin-mnist","bnetflix","book","c20ng","cr52","cwebkb","dna","jester","kdd","kosarek","msnbc","msweb","nltcs","plants","pumsb_star","tmovie","tretail"]
 dataset_path = "data/"
 
 chop_methods = ["gtest", "mi"]
@@ -42,27 +42,30 @@ def write_file_experiment(file, dataset, train_dataset, test_dataset, chop_metho
 
 
 
-with open("experiment_results.txt","w") as file:
+for dataset in datasets:
+    try:
+        with open(str(dataset)+"_experiment_results.txt","w") as file:
 
-    for dataset in datasets:
+            train_path = dataset_path+dataset+".ts.data"
+            test_path = dataset_path+dataset+".test.data"
 
-        train_path = dataset_path+dataset+".ts.data"
-        test_path = dataset_path+dataset+".test.data"
+            train_dataset = np.loadtxt(train_path, delimiter=",", dtype=np.uint32)
+            test_dataset = np.loadtxt(test_path, delimiter=",", dtype=np.uint32)
 
-        train_dataset = np.loadtxt(train_path, delimiter=",", dtype=np.uint32)
-        test_dataset = np.loadtxt(test_path, delimiter=",", dtype=np.uint32)
+            for min_instance in min_instances:
 
-        for min_instance in min_instances:
+                for chop_method in chop_methods:
+                    for slice_method in slice_methods:
 
-            for chop_method in chop_methods:
-                for slice_method in slice_methods:
+                        if chop_method == "gtest":
+                            for g_factor in g_factors:
+                                write_file_experiment(file, dataset, train_dataset, test_dataset, chop_method, slice_method, g_factor, None, leaf_alpha, min_instance, random_seed)
+                        elif chop_method == "mi":
+                            for mi_factor in mi_factors:
+                                write_file_experiment(file, dataset, train_dataset, test_dataset, chop_method, slice_method, None, mi_factor, leaf_alpha, min_instance, random_seed)
 
-                    if chop_method == "gtest":
-                        for g_factor in g_factors:
-                            write_file_experiment(file, dataset, train_dataset, test_dataset, chop_method, slice_method, g_factor, None, leaf_alpha, min_instance, random_seed)
-                    elif chop_method == "mi":
-                        for mi_factor in mi_factors:
-                            write_file_experiment(file, dataset, train_dataset, test_dataset, chop_method, slice_method, None, mi_factor, leaf_alpha, min_instance, random_seed)
-
-                                
-    file.close()
+                                    
+            file.close()
+    
+    except Exception:
+        print("*** Error in "+str(dataset))
