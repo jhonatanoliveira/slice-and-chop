@@ -5,16 +5,20 @@ from time import time
 
 random_seed = 12345
 
-datasets = ["accidents","ad","baudio","bbc","bin-mnist","bnetflix","book","c20ng","cr52","cwebkb","dna","jester","kdd","kosarek","msnbc","msweb","nltcs","plants","pumsb_star","tmovie","tretail"]
+datasets = ["accidents"]
+# datasets = ["accidents","ad","baudio","bbc","bin-mnist","bnetflix","book","c20ng","cr52","cwebkb","dna","jester","kdd","kosarek","msnbc","msweb","nltcs","plants","pumsb_star","tmovie","tretail"]
 dataset_path = "data/"
 
 chop_methods = ["gtest", "mi"]
 slice_methods = ["gmm", "kmeans"]
 
-g_factors = [5,10,15,20]
-mi_factors = [0.1,0.05,0.01,0.005]
+# g_factors = [5,10,15,20]
+g_factors = [5]
+# mi_factors = [0.1,0.05,0.01,0.005]
+mi_factors = [0.1]
 leaf_alpha = 0.1
-min_instances = [10,50,100,500]
+# min_instances = [10,50,100,500]
+min_instances = [10]
 
 
 def write_file_experiment(file, dataset, train_dataset, test_dataset, chop_method, slice_method, g_factor, mi_factor, leaf_alpha, min_instance, random_seed):

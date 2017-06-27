@@ -67,6 +67,9 @@ class SPN():
         for i in range(dataset.shape[0]):
             evidence_row = dataset[i,:]
             value = self.evaluate(evidence_row)
+            ### DEBUG
+            print("*** I_"+str(i)+": "+str(value))
+            ###---DEBUG
             if value > 0:
                 raise ValueError("Likelihood expected to be positive (probability between 0 and 1)")
             log_likelihood += value
@@ -83,7 +86,7 @@ class SPN():
             elif isinstance(node,ProductNode):
                 node_label = "x"
             elif isinstance(node,LeafNode):
-                node_label = "^"
+                node_label = ",".join(["X_"+str(v) for v in node.variables])
             if len(node.predecessors) > 0:
                 for predecessor in node.predecessors:
                     if len(node.weight)>0:
@@ -139,9 +142,6 @@ class ProductNode(Node):
         log_value = 0
         for successor in self.successors:
             log_value += successor.evaluate()
-        ### DEBUG
-        # print(">>> Product node with var "+str(self.variables)+" --> "+str(log_value))
-        ###---DEBUG
         return log_value
 
 
@@ -172,10 +172,6 @@ class SumNode(Node):
         log_value = LOG_ZERO
         if sum_val > 0:
             log_value = math.log(sum_val) + max_log
-
-        ### DEBUG
-        # print(">>> Sum node with var "+str(self.variables)+" --> "+str(log_value))
-        ###---DEBUG
 
         return log_value
 
